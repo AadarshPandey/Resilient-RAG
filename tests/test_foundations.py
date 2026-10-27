@@ -44,22 +44,22 @@ def test_settings_defaults_and_env_override(monkeypatch: pytest.MonkeyPatch) -> 
     # Test overrides with RAG_ prefix
     monkeypatch.setenv("RAG_MAX_HEAL_ATTEMPTS", "2")
     monkeypatch.setenv("RAG_HEALING_ENABLED", "false")
-    monkeypatch.setenv("RAG_LLM_CHAIN", "google:gemini-1.5-flash,google:gemini-1.5-pro")
+    monkeypatch.setenv("RAG_LLM_CHAIN", "google:gemini-2.5-flash,google:gemini-2.5-pro")
     monkeypatch.setenv("RAG_DEVICE", "cpu")
     monkeypatch.setenv("GEMINI_API_KEY", "test-key-123")
 
     overridden = Settings(_env_file=None)
     assert overridden.max_heal_attempts == 2
     assert overridden.healing_enabled is False
-    assert overridden.llm_chain == "google:gemini-1.5-flash,google:gemini-1.5-pro"
+    assert overridden.llm_chain == "google:gemini-2.5-flash,google:gemini-2.5-pro"
     assert overridden.device == "cpu"
     assert overridden.gemini_api_key == "test-key-123"
 
     # Helper method to get tiers
     tiers = overridden.get_llm_tiers()
     assert len(tiers) == 2
-    assert tiers[0] == ("google", "gemini-1.5-flash")
-    assert tiers[1] == ("google", "gemini-1.5-pro")
+    assert tiers[0] == ("google", "gemini-2.5-flash")
+    assert tiers[1] == ("google", "gemini-2.5-pro")
 
 
 def test_typed_errors_hierarchy() -> None:
@@ -166,12 +166,12 @@ def test_settings_methods(tmp_path: Path) -> None:
         corpus_dir=str(tmp_path / "raw"),
         qdrant_path=str(tmp_path / "qdrant"),
         audit_log_path=str(tmp_path / "audit.jsonl"),
-        llm_chain="gemini-1.5-flash",
+        llm_chain="gemini-2.5-flash",
     )
     assert settings.get_effective_gemini_api_key() is None
     tiers = settings.get_llm_tiers()
     assert len(tiers) == 1
-    assert tiers[0] == ("google", "gemini-1.5-flash")
+    assert tiers[0] == ("google", "gemini-2.5-flash")
 
     settings.ensure_directories()
     assert (tmp_path / "raw").is_dir()

@@ -32,10 +32,19 @@ class Settings(BaseSettings):
         # Mirror LangSmith tracing variables into os.environ for client tracing
         if self.langsmith_tracing:
             os.environ["LANGSMITH_TRACING"] = "true"
+            os.environ["LANGCHAIN_TRACING_V2"] = "true"
             if self.langsmith_project:
                 os.environ["LANGSMITH_PROJECT"] = self.langsmith_project
-            if self.langsmith_api_key and not os.environ.get("LANGSMITH_API_KEY"):
-                os.environ["LANGSMITH_API_KEY"] = self.langsmith_api_key
+                os.environ["LANGCHAIN_PROJECT"] = self.langsmith_project
+            if self.langsmith_api_key:
+                if not os.environ.get("LANGSMITH_API_KEY"):
+                    os.environ["LANGSMITH_API_KEY"] = self.langsmith_api_key
+                if not os.environ.get("LANGCHAIN_API_KEY"):
+                    os.environ["LANGCHAIN_API_KEY"] = self.langsmith_api_key
+            if not os.environ.get("LANGSMITH_ENDPOINT"):
+                os.environ["LANGSMITH_ENDPOINT"] = self.langsmith_endpoint
+            if not os.environ.get("LANGCHAIN_ENDPOINT"):
+                os.environ["LANGCHAIN_ENDPOINT"] = self.langsmith_endpoint
 
     # Core healing & recovery
     healing_enabled: bool = True
@@ -79,6 +88,12 @@ class Settings(BaseSettings):
     langsmith_project: str = Field(
         default="resilient-rag",
         validation_alias=AliasChoices("LANGSMITH_PROJECT", "RAG_LANGSMITH_PROJECT"),
+    )
+    langsmith_endpoint: str = Field(
+        default="https://api.smith.langchain.com",
+        validation_alias=AliasChoices(
+            "LANGSMITH_ENDPOINT", "LANGCHAIN_ENDPOINT", "RAG_LANGSMITH_ENDPOINT"
+        ),
     )
 
     def get_llm_tiers(self) -> list[tuple[str, str]]:

@@ -88,7 +88,7 @@ def test_llm_providers_and_error_mappings() -> None:
     settings = Settings(gemini_api_key="fake-gemini-key", openai_api_key="fake-openai-key")
 
     with patch("langchain_google_genai.ChatGoogleGenerativeAI"):
-        adapter = GoogleChatModelAdapter("gemini-1.5-flash", api_key="test-key")
+        adapter = GoogleChatModelAdapter("gemini-2.5-flash", api_key="test-key")
         mock_client = MagicMock()
         adapter.client = mock_client
 
@@ -133,7 +133,7 @@ def test_llm_providers_and_error_mappings() -> None:
             adapter_ollama.invoke([{"role": "user", "content": "hi"}])
 
     # build_chat_model dispatching
-    m_google = build_chat_model("google", "gemini-1.5-pro", settings)
+    m_google = build_chat_model("google", "gemini-2.5-pro", settings)
     assert isinstance(m_google, GoogleChatModelAdapter)
 
     m_openai = build_chat_model("openai", "gpt-4o", settings)

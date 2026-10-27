@@ -142,7 +142,7 @@ Edit `.env`:
 GEMINI_API_KEY=your-gemini-api-key-here
 
 # LLM Tier configuration (defaults to Gemini 1.5 Flash as Tier 0 and Pro as Tier 1)
-RAG_LLM_CHAIN=google:gemini-1.5-flash,google:gemini-1.5-pro
+RAG_LLM_CHAIN=google:gemini-2.5-flash,google:gemini-2.5-pro
 
 # Self-healing supervisor controls
 RAG_HEALING_ENABLED=true

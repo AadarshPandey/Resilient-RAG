@@ -39,6 +39,13 @@ def test_is_langsmith_enabled() -> None:
     ):
         assert is_langsmith_enabled()
 
+    with patch.dict(
+        "os.environ",
+        {"LANGCHAIN_TRACING_V2": "true", "LANGCHAIN_API_KEY": "lsv2_pt_xxx"},
+        clear=True,
+    ):
+        assert is_langsmith_enabled()
+
 
 def test_build_run_metadata() -> None:
     assert build_run_metadata() == {}

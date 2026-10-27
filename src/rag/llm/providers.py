@@ -33,15 +33,9 @@ class GoogleChatModelAdapter:
     def __init__(self, model_name: str, api_key: str | None = None) -> None:
         from langchain_google_genai import ChatGoogleGenerativeAI
 
-        effective_model = model_name
-        if model_name in ("gemini-1.5-flash", "gemini-flash"):
-            effective_model = "gemini-2.5-flash"
-        elif model_name in ("gemini-1.5-pro", "gemini-pro"):
-            effective_model = "gemini-2.5-pro"
-
-        self.model_name = effective_model
+        self.model_name = model_name
         self.client = ChatGoogleGenerativeAI(
-            model=effective_model,
+            model=model_name,
             google_api_key=api_key,
             temperature=0.0,
         )

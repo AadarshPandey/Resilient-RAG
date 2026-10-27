@@ -154,7 +154,7 @@ def test_provider_adapter_mapping_gemini() -> None:
     settings = Settings(
         _env_file=None,
         gemini_api_key="mock_key",
-        llm_chain="google:gemini-1.5-flash",
+        llm_chain="google:gemini-2.5-flash",
     )
 
     with patch("langchain_google_genai.ChatGoogleGenerativeAI") as mock_genai_cls:
@@ -169,7 +169,7 @@ def test_provider_adapter_mapping_gemini() -> None:
         }
         mock_instance.invoke.return_value = mock_ai_message
 
-        model = build_chat_model("google", "gemini-1.5-flash", settings)
+        model = build_chat_model("google", "gemini-2.5-flash", settings)
         res = model.invoke([{"role": "user", "content": "hello"}], tier=0)
         assert res.content == "Answer text"
         assert res.prompt_tokens == 15

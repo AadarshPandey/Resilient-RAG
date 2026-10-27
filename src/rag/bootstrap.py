@@ -141,7 +141,7 @@ def build_components(
             tiers[idx] = build_chat_model(provider, model_name, cfg)
         if not tiers:
             # Fallback default gemini
-            tiers[0] = build_chat_model("google", "gemini-1.5-flash", cfg)
+            tiers[0] = build_chat_model("google", "gemini-2.5-flash", cfg)
         llm_client = LLMClient(tiers=tiers, clock=clock)
 
     # Graph

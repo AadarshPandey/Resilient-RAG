@@ -18,8 +18,14 @@ logger = logging.getLogger(__name__)
 
 def is_langsmith_enabled() -> bool:
     """Return True if LangSmith tracing is explicitly enabled and API key is present."""
-    tracing = os.environ.get("LANGSMITH_TRACING", "").strip().lower() in ("true", "1")
-    has_key = bool(os.environ.get("LANGSMITH_API_KEY", "").strip())
+    tracing = os.environ.get("LANGSMITH_TRACING", "").strip().lower() in (
+        "true",
+        "1",
+    ) or os.environ.get("LANGCHAIN_TRACING_V2", "").strip().lower() in ("true", "1")
+    has_key = bool(
+        os.environ.get("LANGSMITH_API_KEY", "").strip()
+        or os.environ.get("LANGCHAIN_API_KEY", "").strip()
+    )
     return tracing and has_key
 
 
