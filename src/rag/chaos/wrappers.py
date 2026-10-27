@@ -134,7 +134,7 @@ class ChaosVectorStore:
         return self.target.count()
 
 
-class ChaosBM25Index:
+class ChaosBM25Index(BM25Index):
     """Wraps BM25Index with chaos fault injection."""
 
     def __init__(
@@ -143,6 +143,7 @@ class ChaosBM25Index:
         controller: FaultController,
         clock: Clock | None = None,
     ) -> None:
+        super().__init__()
         self.target = target
         self.controller = controller
         self.clock = clock or SystemClock()
@@ -160,7 +161,7 @@ class ChaosBM25Index:
         return self.target.search_chunks(query, top_k=top_k)
 
 
-class ChaosRetriever:
+class ChaosRetriever(Retriever):
     """Wraps Retriever facade with candidate corruption and prompt injection faults."""
 
     def __init__(
@@ -169,6 +170,12 @@ class ChaosRetriever:
         controller: FaultController,
         clock: Clock | None = None,
     ) -> None:
+        super().__init__(
+            embedder=target.embedder,
+            vector_store=target.vector_store,
+            bm25_index=target.bm25_index,
+            reranker=target.reranker,
+        )
         self.target = target
         self.controller = controller
         self.clock = clock or SystemClock()
