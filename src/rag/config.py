@@ -73,6 +73,14 @@ class Settings(BaseSettings):
     checkpoint_dsn: str = "sqlite:///data/checkpoints.db"
     audit_log_path: str = "data/audit.jsonl"
     corpus_dir: str = "data/raw"
+    redis_url: str = Field(
+        default="redis://localhost:6379/0",
+        validation_alias=AliasChoices("REDIS_URL", "RAG_REDIS_URL"),
+    )
+
+    # API & concurrency
+    api_concurrency_limit: int = 10
+    api_timeout_seconds: float = 30.0
 
     # Observability & tracing
     langsmith_tracing: bool = Field(

@@ -43,6 +43,7 @@ class Components:
         retrieval_mode: str | None = None,
         top_k: int = 5,
         healing_enabled: bool | None = None,
+        request_id: str | None = None,
     ) -> RagState:
         """Execute a query through the LangGraph pipeline."""
         initial_state: RagState = {
@@ -68,6 +69,7 @@ class Components:
         }
 
         tid = thread_id or f"run_{uuid.uuid4().hex[:12]}"
+        req_id = request_id or tid
 
         config = {
             "configurable": {
@@ -76,7 +78,11 @@ class Components:
                 "healing_enabled": self.settings.healing_enabled
                 if healing_enabled is None
                 else healing_enabled,
-            }
+            },
+            "metadata": {
+                "request_id": req_id,
+            },
+            "tags": ["rag", "api"],
         }
 
         result = self.graph.invoke(initial_state, config=config)

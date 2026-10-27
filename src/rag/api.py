@@ -1,14 +1,27 @@
-"""FastAPI application for Resilient RAG."""
+"""FastAPI application for Resilient RAG with async endpoints, concurrency bounds, timeouts, and ingestion queue."""
 
 from __future__ import annotations
 
+import asyncio
+import uuid
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from rag.bootstrap import Components, build_components
-from rag.config import get_settings
+from rag.config import Settings, get_settings
+from rag.ingest.pipeline import IngestionPipeline
+from rag.ingest.queue import (
+    InMemoryJobQueue,
+    JobQueue,
+    create_job_queue,
+)
+from rag.logging_setup import (
+    current_request_id,
+    get_current_request_id,
+    set_current_request_id,
+)
 from rag.schemas import Outcome
 
 
@@ -68,36 +81,120 @@ class HealthResponse(BaseModel):
     version: str = "0.1.0"
 
 
-def create_app(components: Components | None = None) -> FastAPI:
-    """Create and configure FastAPI application instance."""
+class IngestRequest(BaseModel):
+    """Payload to trigger background ingestion."""
+
+    input_dir: str = Field(default="data/raw", description="Directory of files to ingest")
+    force: bool = Field(default=False, description="Force re-indexing ignoring manifest")
+
+
+class IngestResponse(BaseModel):
+    """Response returned upon enqueuing an ingestion job."""
+
+    job_id: str
+    status: str = "queued"
+
+
+class IngestJobStatusResponse(BaseModel):
+    """Detailed status report of an ingestion job."""
+
+    job_id: str
+    input_dir: str
+    status: str
+    attempts: int = 0
+    max_attempts: int = 3
+    result: dict[str, Any] | None = None
+    error: str | None = None
+    created_at: float
+    updated_at: float
+
+
+def _get_semaphore(app: FastAPI) -> asyncio.Semaphore:
+    """Retrieve or create application-level concurrency semaphore."""
+    if not hasattr(app.state, "semaphore") or app.state.semaphore is None:
+        limit = getattr(app.state, "settings", get_settings()).api_concurrency_limit
+        app.state.semaphore = asyncio.Semaphore(limit)
+    return app.state.semaphore  # type: ignore[no-any-return]
+
+
+def create_app(
+    components: Components | None = None,
+    settings: Settings | None = None,
+    queue: JobQueue | None = None,
+    pipeline: IngestionPipeline | None = None,
+) -> FastAPI:
+    """Create and configure FastAPI application instance with async handlers and ingestion queue."""
+    cfg = settings or (components.settings if components else get_settings())
+
     app = FastAPI(
         title="Resilient RAG API",
         description="Production-grade self-healing RAG API with fault tolerance",
         version="0.1.0",
     )
 
+    app.state.settings = cfg
     if components is not None:
         app.state.components = components
     else:
-        app.state.components = build_components(get_settings())
+        app.state.components = build_components(cfg)
+
+    # Ingestion queue and pipeline setup
+    if queue is not None:
+        app.state.queue = queue
+    else:
+        app.state.queue = create_job_queue(cfg.redis_url)
+
+    if pipeline is not None:
+        app.state.pipeline = pipeline
+    else:
+        try:
+            app.state.pipeline = IngestionPipeline(
+                embedder=app.state.components.embedder,
+                vector_store=app.state.components.vector_store,
+                bm25_index=app.state.components.bm25_index,
+            )
+        except Exception:
+            app.state.pipeline = None
+
+    @app.middleware("http")
+    async def request_id_middleware(request: Request, call_next: Any) -> Response:
+        req_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+        token = set_current_request_id(req_id)
+        try:
+            response: Response = await call_next(request)
+            response.headers["X-Request-ID"] = req_id
+            return response
+        finally:
+            current_request_id.reset(token)
 
     @app.get("/health", response_model=HealthResponse)
-    def health() -> HealthResponse:
+    async def health() -> HealthResponse:
         return HealthResponse(status="ok", version="0.1.0")
 
     @app.post("/ask", response_model=AskResponse)
-    def ask(request: AskRequest) -> AskResponse:
+    async def ask(request: AskRequest, raw_req: Request) -> AskResponse:
         active_components = getattr(app.state, "components", None)
         if not isinstance(active_components, Components):
             raise HTTPException(status_code=500, detail="Components not initialized")
 
-        final_state = active_components.run(
-            question=request.question,
-            thread_id=request.thread_id,
-            retrieval_mode=request.retrieval_mode,
-            top_k=request.top_k,
-            healing_enabled=request.healing_enabled,
-        )
+        req_id = raw_req.headers.get("X-Request-ID") or get_current_request_id() or uuid.uuid4().hex
+        sem = _get_semaphore(app)
+        timeout_sec = getattr(app.state, "settings", cfg).api_timeout_seconds
+
+        try:
+            async with asyncio.timeout(timeout_sec):
+                async with sem:
+                    final_state = await asyncio.to_thread(
+                        active_components.run,
+                        question=request.question,
+                        thread_id=request.thread_id,
+                        retrieval_mode=request.retrieval_mode,
+                        top_k=request.top_k,
+                        healing_enabled=request.healing_enabled,
+                        request_id=req_id,
+                    )
+        except TimeoutError:
+            raise HTTPException(status_code=504, detail="Request timed out") from None
 
         # Parse citations
         raw_citations = final_state.get("citations", [])
@@ -144,6 +241,38 @@ def create_app(components: Components | None = None) -> FastAPI:
             trace=trace,
             llm_calls=final_state.get("llm_calls", 0),
             token_usage=final_state.get("token_usage", 0),
+        )
+
+    @app.post("/ingest", response_model=IngestResponse, status_code=202)
+    async def ingest(request: IngestRequest) -> IngestResponse:
+        q = getattr(app.state, "queue", None)
+        if not isinstance(q, (JobQueue, InMemoryJobQueue)):
+            raise HTTPException(status_code=500, detail="Ingestion queue not initialized")
+
+        job_id = q.enqueue(input_dir=request.input_dir, force=request.force)
+        return IngestResponse(job_id=job_id, status="queued")
+
+    @app.get("/ingest/{job_id}", response_model=IngestJobStatusResponse)
+    async def get_ingest_job(job_id: str) -> IngestJobStatusResponse:
+        q = getattr(app.state, "queue", None)
+        if not isinstance(q, (JobQueue, InMemoryJobQueue)):
+            raise HTTPException(status_code=500, detail="Ingestion queue not initialized")
+
+        job = q.get_job(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+
+        status_str = job.status.value if hasattr(job.status, "value") else str(job.status)
+        return IngestJobStatusResponse(
+            job_id=job.id,
+            input_dir=job.input_dir,
+            status=status_str,
+            attempts=job.attempts,
+            max_attempts=job.max_attempts,
+            result=job.result,
+            error=job.error,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
         )
 
     return app

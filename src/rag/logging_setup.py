@@ -1,10 +1,27 @@
 """Structured single-line JSON logging configuration."""
 
+from __future__ import annotations
+
+import contextvars
 import json
 import logging
 import sys
 from datetime import UTC, datetime
 from typing import Any
+
+current_request_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "current_request_id", default=None
+)
+
+
+def set_current_request_id(request_id: str | None) -> contextvars.Token[str | None]:
+    """Set the active request ID in context."""
+    return current_request_id.set(request_id)
+
+
+def get_current_request_id() -> str | None:
+    """Retrieve the active request ID from context."""
+    return current_request_id.get()
 
 
 class JSONFormatter(logging.Formatter):
@@ -17,6 +34,10 @@ class JSONFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
+        req_id = getattr(record, "request_id", None) or get_current_request_id()
+        if req_id is not None:
+            log_obj["request_id"] = req_id
+
         if record.exc_info:
             log_obj["exception"] = self.formatException(record.exc_info)
         extra_dict = getattr(record, "extra", None)
