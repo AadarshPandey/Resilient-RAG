@@ -1,9 +1,14 @@
 """Application configuration and environment settings."""
 
+import os
 from pathlib import Path
+from typing import Any
 
+from dotenv import load_dotenv
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Application configuration and environment settings
 
 
 class Settings(BaseSettings):
@@ -16,13 +21,29 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    def __init__(self, **values: Any) -> None:
+        super().__init__(**values)
+        # Mirror Gemini key to GOOGLE_API_KEY if needed by langchain-google-genai / google client
+        if self.gemini_api_key:
+            if not os.environ.get("GOOGLE_API_KEY"):
+                os.environ["GOOGLE_API_KEY"] = self.gemini_api_key
+            if not os.environ.get("GEMINI_API_KEY"):
+                os.environ["GEMINI_API_KEY"] = self.gemini_api_key
+        # Mirror LangSmith tracing variables into os.environ for client tracing
+        if self.langsmith_tracing:
+            os.environ["LANGSMITH_TRACING"] = "true"
+            if self.langsmith_project:
+                os.environ["LANGSMITH_PROJECT"] = self.langsmith_project
+            if self.langsmith_api_key and not os.environ.get("LANGSMITH_API_KEY"):
+                os.environ["LANGSMITH_API_KEY"] = self.langsmith_api_key
+
     # Core healing & recovery
     healing_enabled: bool = True
     max_heal_attempts: int = 4
 
     # LLM chain configuration (tier-0, tier-1)
     # Defaulting to Gemini models as requested by the user
-    llm_chain: str = "google:gemini-1.5-flash,google:gemini-1.5-pro"
+    llm_chain: str = "google:gemini-2.5-flash,google:gemini-2.5-pro"
 
     # API Keys (accepts standard provider names as well as RAG_ prefixed)
     gemini_api_key: str | None = Field(
@@ -86,4 +107,5 @@ class Settings(BaseSettings):
 
 def get_settings() -> Settings:
     """Return an application Settings instance."""
+    load_dotenv()
     return Settings()

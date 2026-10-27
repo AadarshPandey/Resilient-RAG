@@ -162,6 +162,7 @@ def test_settings_methods(tmp_path: Path) -> None:
     """Test helper methods on Settings."""
     settings = Settings(
         _env_file=None,
+        gemini_api_key=None,
         corpus_dir=str(tmp_path / "raw"),
         qdrant_path=str(tmp_path / "qdrant"),
         audit_log_path=str(tmp_path / "audit.jsonl"),
