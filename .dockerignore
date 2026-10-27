@@ -1,0 +1,42 @@
+# Version control & internal documentation
+.git
+.gitignore
+PLAN.md
+STORY.md
+
+# Python cache & virtual environments
+__pycache__
+*.py[cod]
+*$py.class
+.venv
+env/
+venv/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Testing, typing, and linting caches
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+.coverage.*
+htmlcov
+
+# Agent & IDE tooling
+.agents
+.vscode
+.idea
+.DS_Store
+
+# Local runtime data & build results
+data/qdrant
+data/audit.jsonl
+data/manifest.json
+data/checkpoints.db
+results/*
+!results/scorecard.md
+!results/scorecard.csv
+!results/scorecard.png
