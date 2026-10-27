@@ -4,7 +4,7 @@
 
 Built with **PyTorch · LangChain · LangGraph · LangSmith · RAGAS · FastAPI · Streamlit · Qdrant**
 
-> **Status:** Phase 1 (Prototype) complete (M0–M13 ✅), Phase 2 (Production) planned. Track progress in [`PLAN.md`](PLAN.md).
+> **Status:** Phase 1 (Prototype) complete (M0–M13 ✅), Phase 2 (Production) core complete (P1–P7 ✅). Track progress in [`PLAN.md`](PLAN.md).
 
 ---
 
@@ -107,11 +107,11 @@ Use Python 3.12 or 3.13 unless you have verified that every dependency, especial
 | Scorecard (Wilson CI, recovery, MTTR, overhead) | 1 | ✅ |
 | RAGAS evaluation and LangSmith tracing | 1 | ✅ |
 | CLI, FastAPI, Streamlit | 1 | ✅ |
-| Docker, Qdrant server, Postgres checkpointer | 2 | ⬜ |
-| Async API, auth, rate limiting, Prometheus metrics | 2 | ⬜ |
-| Queue-based ingestion | 2 | ⬜ |
-| CI/CD with chaos regression gate | 2 | ⬜ |
-| PyTorch-trained groundedness verifier (stretch) | 2 | ⬜ |
+| Docker, Qdrant server, Postgres checkpointer | 2 | ✅ |
+| Async API, auth, rate limiting, Prometheus metrics | 2 | ✅ |
+| Queue-based ingestion | 2 | ✅ |
+| CI/CD with chaos regression gate | 2 | ✅ |
+| PyTorch-trained groundedness verifier (stretch) | 2 | ⬜ (P8 Stretch) |
 
 
 ## 5. How to run

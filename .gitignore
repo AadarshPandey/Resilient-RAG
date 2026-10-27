@@ -51,6 +51,7 @@ results/*
 !results/scorecard.md
 !results/scorecard.csv
 !results/scorecard.png
+!results/baseline.json
 *.db
 *.sqlite3
 

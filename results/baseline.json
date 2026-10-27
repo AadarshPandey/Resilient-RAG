@@ -1,0 +1,9 @@
+{
+  "baseline_version": "1.0.0",
+  "generated_at": "2026-10-27T07:23:00Z",
+  "condition_c_safe_outcome_rate": 1.0,
+  "condition_c_safe_outcome_lower_ci": 0.973,
+  "condition_c_recovery_rate": 1.0,
+  "min_acceptable_safe_outcome_rate": 0.95,
+  "max_allowed_drop": 0.05
+}
