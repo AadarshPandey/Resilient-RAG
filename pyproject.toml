@@ -86,6 +86,7 @@ module = [
     "rank_bm25.*",
     "sentence_transformers.*",
     "ragas.*",
+    "datasets.*",
     "streamlit.*",
     "pypdf.*",
     "bs4.*",
