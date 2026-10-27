@@ -9,6 +9,7 @@ from rag.audit import AuditLogger
 from rag.clock import Clock, SystemClock
 from rag.config import Settings
 from rag.graph.build import build_graph
+from rag.graph.checkpointer import create_checkpointer
 from rag.graph.state import RagState
 from rag.llm.base import ChatModel
 from rag.llm.client import LLMClient
@@ -144,8 +145,14 @@ def build_components(
             tiers[0] = build_chat_model("google", "gemini-2.5-flash", cfg)
         llm_client = LLMClient(tiers=tiers, clock=clock)
 
-    # Graph
-    graph = ov.get("graph") or build_graph()
+    # Graph and Checkpointer
+    if "graph" in ov:
+        graph = ov["graph"]
+    else:
+        checkpointer = ov.get("checkpointer")
+        if checkpointer is None:
+            checkpointer = create_checkpointer(cfg.checkpoint_dsn)
+        graph = build_graph(checkpointer=checkpointer)
 
     return Components(
         settings=cfg,

@@ -12,6 +12,7 @@ dependencies = [
     "langchain-ollama>=1.1.0",
     "langchain-openai>=1.7.3",
     "langgraph>=1.2.18",
+    "langgraph-checkpoint-postgres>=3.2.0",
     "langgraph-checkpoint-sqlite>=3.1.2",
     "langsmith>=0.14.12",
     "matplotlib>=3.11.2",

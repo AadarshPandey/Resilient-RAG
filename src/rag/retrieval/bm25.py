@@ -50,6 +50,10 @@ class BM25Index:
         ]
         self.index_chunks(chunks)
 
+    def index(self, chunks: list[Chunk]) -> None:
+        """Alias for index_chunks."""
+        self.index_chunks(chunks)
+
     def index_chunks(self, chunks: list[Chunk]) -> None:
         """Index a list of Chunk objects."""
         self.chunks_by_id = {c.id: c for c in chunks}
@@ -164,6 +168,14 @@ class BM25Index:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f)
+
+    def count(self) -> int:
+        """Return total chunks count in index."""
+        return self.corpus_size
+
+    def close(self) -> None:
+        """Close index and release resources."""
+        pass
 
     @classmethod
     def load(cls, path: str | Path) -> "BM25Index":
