@@ -8,8 +8,6 @@ from dotenv import load_dotenv
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Application configuration and environment settings
-
 
 class Settings(BaseSettings):
     """Configuration settings for Resilient RAG loaded from environment variables."""

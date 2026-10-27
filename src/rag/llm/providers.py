@@ -67,11 +67,12 @@ class OpenAIChatModelAdapter:
 
     def __init__(self, model_name: str, api_key: str | None = None) -> None:
         from langchain_openai import ChatOpenAI
+        from pydantic import SecretStr
 
         self.model_name = model_name
         self.client = ChatOpenAI(
             model=model_name,
-            api_key=api_key,  # type: ignore[arg-type]
+            api_key=SecretStr(api_key) if api_key else None,
             temperature=0.0,
         )
 

@@ -55,7 +55,8 @@ results/*
 *.sqlite3
 
 
-# IDE & OS
+# IDE & OS & Agent metadata
 .vscode/
 .idea/
 .DS_Store
+.agents/
