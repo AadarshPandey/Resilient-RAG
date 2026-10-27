@@ -17,6 +17,7 @@ dependencies = [
     "langsmith>=0.14.12",
     "matplotlib>=3.11.2",
     "pandas>=3.1.0",
+    "prometheus-client>=0.26.0",
     "pydantic>=2.14.1",
     "pydantic-settings>=2.16.1",
     "pypdf>=6.21.2",

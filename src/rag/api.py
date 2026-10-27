@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 import uuid
 from typing import Any
 
@@ -23,6 +24,7 @@ from rag.logging_setup import (
     get_current_request_id,
     set_current_request_id,
 )
+from rag.metrics import get_prometheus_metrics, record_ask_metrics
 from rag.schemas import Outcome
 from rag.security import RateLimiter, verify_api_key
 
@@ -186,8 +188,14 @@ def create_app(
     async def health() -> HealthResponse:
         return HealthResponse(status="ok", version="0.1.0")
 
+    @app.get("/metrics")
+    async def metrics() -> Response:
+        data, content_type = get_prometheus_metrics()
+        return Response(content=data, media_type=content_type)
+
     @app.post("/ask", response_model=AskResponse)
     async def ask(request: AskRequest, raw_req: Request) -> AskResponse:
+        start_time = time.perf_counter()
         active_components = getattr(app.state, "components", None)
         if not isinstance(active_components, Components):
             raise HTTPException(status_code=500, detail="Components not initialized")
@@ -264,6 +272,16 @@ def create_app(
         # Parse heal history
         raw_history = final_state.get("heal_history", [])
         history_list = [[str(pair[0]), str(pair[1])] for pair in raw_history]
+
+        duration = time.perf_counter() - start_time
+        record_ask_metrics(
+            outcome=outcome_str,
+            duration=duration,
+            heal_history=history_list,
+            llm_tier=final_state.get("llm_tier", 0),
+            prompt_tokens=final_state.get("token_usage", 0),
+            completion_tokens=0,
+        )
 
         return AskResponse(
             question=request.question,
