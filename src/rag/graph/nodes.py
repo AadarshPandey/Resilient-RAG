@@ -18,6 +18,7 @@ from rag.schemas import (
     Citation,
     Claim,
     FailureType,
+    Outcome,
     RetrievalMode,
     RetrievedChunk,
     TraceEvent,
@@ -214,6 +215,33 @@ def generate_node(state: RagState, config: RunnableConfig | None = None) -> dict
     )
     llm_calls = state.get("llm_calls", 0) + 1
 
+    budget = (
+        components.settings.max_request_token_budget
+        if components and hasattr(components, "settings")
+        else 4000
+    )
+    if token_usage > budget:
+        trace.append(
+            TraceEvent(
+                node="generate",
+                timestamp=t,
+                details={
+                    "failure": "context_overflow",
+                    "reason": "token_budget_exceeded",
+                    "token_usage": token_usage,
+                    "budget": budget,
+                },
+            )
+        )
+        return {
+            "last_failure": FailureType.CONTEXT_OVERFLOW,
+            "error_message": f"Token budget of {budget} exceeded ({token_usage} used)",
+            "token_usage": token_usage,
+            "llm_calls": llm_calls,
+            "trace": trace,
+            "outcome": Outcome.ABSTAINED,
+        }
+
     try:
         parsed = parse_defensive_json(llm_result.content)
     except MalformedOutputError as e:
@@ -314,6 +342,33 @@ def verify_node(state: RagState, config: RunnableConfig | None = None) -> dict[s
         state.get("token_usage", 0) + llm_result.prompt_tokens + llm_result.completion_tokens
     )
     llm_calls = state.get("llm_calls", 0) + 1
+
+    budget = (
+        components.settings.max_request_token_budget
+        if components and hasattr(components, "settings")
+        else 4000
+    )
+    if token_usage > budget:
+        trace.append(
+            TraceEvent(
+                node="verify",
+                timestamp=t,
+                details={
+                    "failure": "context_overflow",
+                    "reason": "token_budget_exceeded",
+                    "token_usage": token_usage,
+                    "budget": budget,
+                },
+            )
+        )
+        return {
+            "last_failure": FailureType.CONTEXT_OVERFLOW,
+            "error_message": f"Token budget of {budget} exceeded ({token_usage} used)",
+            "token_usage": token_usage,
+            "llm_calls": llm_calls,
+            "trace": trace,
+            "outcome": Outcome.ABSTAINED,
+        }
 
     try:
         parsed = parse_defensive_json(llm_result.content)

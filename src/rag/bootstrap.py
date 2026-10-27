@@ -15,6 +15,7 @@ from rag.llm.base import ChatModel
 from rag.llm.client import LLMClient
 from rag.llm.providers import build_chat_model
 from rag.retrieval.bm25 import BM25Index
+from rag.retrieval.cache import CachedEmbedder
 from rag.retrieval.embedder import Embedder, SentenceTransformerEmbedder
 from rag.retrieval.reranker import CrossEncoderReranker, Reranker
 from rag.retrieval.retriever import Retriever
@@ -107,10 +108,17 @@ def build_components(
     audit_logger: AuditLogger = ov.get("audit_logger") or AuditLogger(path=cfg.audit_log_path)
 
     # Embedder
-    embedder: Embedder = ov.get("embedder") or SentenceTransformerEmbedder(
-        model_name=cfg.embedding_model,
-        device=cfg.device,
-    )
+    if "embedder" in ov:
+        embedder: Embedder = ov["embedder"]
+    else:
+        raw_embedder: Embedder = SentenceTransformerEmbedder(
+            model_name=cfg.embedding_model,
+            device=cfg.device,
+        )
+        if cfg.embedding_cache_enabled:
+            embedder = CachedEmbedder(embedder=raw_embedder)
+        else:
+            embedder = raw_embedder
 
     # Vector store
     vector_store: VectorStore = ov.get("vector_store") or QdrantVectorStore(

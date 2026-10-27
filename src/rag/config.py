@@ -87,6 +87,11 @@ class Settings(BaseSettings):
     max_question_length: int = 4096
     cors_allowed_origins: list[str] = Field(default_factory=lambda: ["*"])
 
+    # Reliability & performance
+    max_request_token_budget: int = 4000
+    warmup_on_startup: bool = False
+    embedding_cache_enabled: bool = True
+
     # Observability & tracing
     langsmith_tracing: bool = Field(
         default=False,
