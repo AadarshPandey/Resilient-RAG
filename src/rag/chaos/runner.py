@@ -15,6 +15,11 @@ from rag.chaos.wrappers import (
     ChaosVectorStore,
 )
 from rag.clock import VirtualClock
+from rag.llm.base import ChatModel
+from rag.retrieval.bm25 import BM25Index
+from rag.retrieval.embedder import Embedder
+from rag.retrieval.retriever import Retriever
+from rag.retrieval.vector import VectorStore
 from rag.schemas import Outcome, RunRecord
 
 
@@ -99,108 +104,157 @@ class ExperimentRunner:
 
         results: list[RunRecord] = []
 
-        for cond in conditions:
-            healing_enabled = cond == "C"
+        base_embedder = components.embedder
+        base_vector_store = components.vector_store
+        base_bm25_index = components.bm25_index
+        base_reranker = components.retriever.reranker
+        base_models = dict(components.llm_client.tiers)
 
-            for scenario in scenarios:
-                for seed in seeds:
-                    for question in questions:
-                        key = (question, scenario.name, seed, cond)
-                        if key in completed:
-                            continue
+        try:
+            for cond in conditions:
+                healing_enabled = cond == "C"
 
-                        # Setup clock and fault controller
-                        clock = VirtualClock(start_time=0.0)
-                        faults = scenario.faults if cond in ("B", "C") else []
-                        controller = FaultController(faults=faults, seed=seed)
+                for scenario in scenarios:
+                    for seed in seeds:
+                        for q_idx, question in enumerate(questions):
+                            key = (question, scenario.name, seed, cond)
+                            if key in completed:
+                                continue
 
-                        # Wrap components with chaos injection
-                        components.embedder = ChaosEmbedder(
-                            target=components.embedder,
-                            controller=controller,
-                            clock=clock,
-                        )
-                        components.vector_store = ChaosVectorStore(
-                            target=components.vector_store,
-                            controller=controller,
-                            clock=clock,
-                        )
-                        components.bm25_index = ChaosBM25Index(
-                            target=components.bm25_index,
-                            controller=controller,
-                            clock=clock,
-                        )
-                        components.retriever = ChaosRetriever(
-                            target=components.retriever,
-                            controller=controller,
-                            clock=clock,
-                        )
+                            # Setup clock and fault controller
+                            clock = VirtualClock(start_time=0.0)
+                            faults = scenario.faults if cond in ("B", "C") else []
+                            controller = FaultController(faults=faults, seed=seed)
 
-                        # Wrap active LLM model
-                        active_model = components.llm_client.tiers[0]
-                        chaos_model = ChaosChatModel(
-                            target=active_model,
-                            controller=controller,
-                            clock=clock,
-                        )
-                        components.llm_client.tiers[0] = chaos_model
-                        components.llm_client.clock = clock
+                            c_embedder: Embedder
+                            c_vstore: VectorStore
+                            c_bm25: BM25Index
+                            c_retriever: Retriever
+                            c_tiers: dict[int, ChatModel]
 
-                        # Run query
-                        try:
-                            state = components.run(
+                            # Wrap components with fresh chaos injection from base objects
+                            if cond in ("B", "C") and faults:
+                                c_embedder = ChaosEmbedder(
+                                    target=base_embedder,
+                                    controller=controller,
+                                    clock=clock,
+                                )
+                                c_vstore = ChaosVectorStore(
+                                    target=base_vector_store,
+                                    controller=controller,
+                                    clock=clock,
+                                )
+                                c_bm25 = ChaosBM25Index(
+                                    target=base_bm25_index,
+                                    controller=controller,
+                                    clock=clock,
+                                )
+                                c_retriever = ChaosRetriever(
+                                    target=Retriever(
+                                        embedder=c_embedder,
+                                        vector_store=c_vstore,
+                                        bm25_index=c_bm25,
+                                        reranker=base_reranker,
+                                    ),
+                                    controller=controller,
+                                    clock=clock,
+                                )
+                                c_tiers = {
+                                    tier: ChaosChatModel(
+                                        target=m,
+                                        controller=controller,
+                                        clock=clock,
+                                    )
+                                    for tier, m in base_models.items()
+                                }
+                            else:
+                                c_embedder = base_embedder
+                                c_vstore = base_vector_store
+                                c_bm25 = base_bm25_index
+                                c_retriever = Retriever(
+                                    embedder=c_embedder,
+                                    vector_store=c_vstore,
+                                    bm25_index=c_bm25,
+                                    reranker=base_reranker,
+                                )
+                                c_tiers = dict(base_models)
+
+                            components.embedder = c_embedder
+                            components.vector_store = c_vstore
+                            components.bm25_index = c_bm25
+                            components.retriever = c_retriever
+                            components.llm_client.tiers = c_tiers
+                            components.llm_client.clock = clock
+
+                            # Run query
+                            try:
+                                state = components.run(
+                                    question=question,
+                                    thread_id=f"run_{cond}_{scenario.name}_{seed}_{q_idx}",
+                                    healing_enabled=healing_enabled,
+                                )
+
+                                raw_outcome = state.get("outcome") or Outcome.FAILED
+                                outcome = (
+                                    Outcome(raw_outcome)
+                                    if isinstance(raw_outcome, str)
+                                    else raw_outcome
+                                )
+                                answer = state.get("answer", "")
+                                citations = state.get("citations", [])
+                                heal_actions = [a for _, a in state.get("heal_history", [])]
+                                faults_detected = (
+                                    [str(state.get("last_failure"))]
+                                    if state.get("last_failure")
+                                    else []
+                                )
+                                llm_calls = state.get("llm_calls", 0)
+                                tokens = state.get("token_usage", 0)
+                                trace = state.get("trace", [])
+                            except Exception as e:
+                                outcome = Outcome.FAILED
+                                answer = f"Error: {e}"
+                                citations = []
+                                heal_actions = []
+                                faults_detected = [type(e).__name__]
+                                llm_calls = 1
+                                tokens = 0
+                                trace = []
+
+                            record = RunRecord(
                                 question=question,
-                                healing_enabled=healing_enabled,
+                                outcome=outcome,
+                                answer=answer,
+                                citations=citations,
+                                attempts=len(heal_actions) + 1,
+                                detected_faults=faults_detected,
+                                heal_actions=heal_actions,
+                                duration_seconds=clock.now(),
+                                trace=trace,
+                                tokens_used=tokens,
+                                llm_calls=llm_calls,
+                                condition=cond,
+                                scenario=scenario.name,
+                                seed=seed,
                             )
-                            raw_outcome = state.get("outcome") or Outcome.FAILED
-                            outcome = (
-                                Outcome(raw_outcome)
-                                if isinstance(raw_outcome, str)
-                                else raw_outcome
-                            )
-                            answer = state.get("answer", "")
-                            citations = state.get("citations", [])
-                            heal_actions = [a for _, a in state.get("heal_history", [])]
-                            faults_detected = (
-                                [str(state.get("last_failure"))]
-                                if state.get("last_failure")
-                                else []
-                            )
-                            llm_calls = state.get("llm_calls", 0)
-                            tokens = state.get("token_usage", 0)
-                            trace = state.get("trace", [])
-                        except Exception as e:
-                            outcome = Outcome.FAILED
-                            answer = f"Error: {e}"
-                            citations = []
-                            heal_actions = []
-                            faults_detected = [type(e).__name__]
-                            llm_calls = 1
-                            tokens = 0
-                            trace = []
 
-                        record = RunRecord(
-                            question=question,
-                            outcome=outcome,
-                            answer=answer,
-                            citations=citations,
-                            attempts=len(heal_actions) + 1,
-                            detected_faults=faults_detected,
-                            heal_actions=heal_actions,
-                            duration_seconds=clock.now(),
-                            trace=trace,
-                            tokens_used=tokens,
-                            llm_calls=llm_calls,
-                            condition=cond,
-                            scenario=scenario.name,
-                            seed=seed,
-                        )
+                            # Incremental JSONL flush
+                            with open(out_path, "a", encoding="utf-8") as f:
+                                f.write(record.model_dump_json() + "\n")
 
-                        # Incremental JSONL flush
-                        with open(out_path, "a", encoding="utf-8") as f:
-                            f.write(record.model_dump_json() + "\n")
+                            completed.add(key)
+                            results.append(record)
 
-                        completed.add(key)
-                        results.append(record)
+        finally:
+            components.embedder = base_embedder
+            components.vector_store = base_vector_store
+            components.bm25_index = base_bm25_index
+            components.retriever = Retriever(
+                embedder=base_embedder,
+                vector_store=base_vector_store,
+                bm25_index=base_bm25_index,
+                reranker=base_reranker,
+            )
+            components.llm_client.tiers = base_models
 
         return results

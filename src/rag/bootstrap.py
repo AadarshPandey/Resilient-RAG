@@ -1,5 +1,7 @@
 """Dependency injection container and pipeline bootstrap."""
 
+import contextlib
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
@@ -57,9 +59,15 @@ class Components:
             if healing_enabled is None
             else healing_enabled,
             "trace": [],
+            "outcome": None,
+            "answer": "",
+            "citations": [],
+            "last_failure": None,
+            "last_action": None,
         }
 
-        tid = thread_id or f"run_{question[:16]}"
+        tid = thread_id or f"run_{uuid.uuid4().hex[:12]}"
+
         config = {
             "configurable": {
                 "thread_id": tid,
@@ -72,6 +80,12 @@ class Components:
 
         result = self.graph.invoke(initial_state, config=config)
         return dict(result)  # type: ignore[return-value]
+
+    def close(self) -> None:
+        """Close vector store and free system resources."""
+        if hasattr(self.vector_store, "close"):
+            with contextlib.suppress(Exception):
+                self.vector_store.close()
 
 
 def build_components(

@@ -91,6 +91,10 @@ class FakeVectorStore:
         """Return total stored chunks."""
         return len(self._chunks)
 
+    def close(self) -> None:
+        """Close fake vector store."""
+        pass
+
 
 class ScriptedChatModel:
     """Fake chat model that yields scripted responses or raises scripted errors."""

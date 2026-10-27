@@ -1,0 +1,4 @@
+condition,total_runs,task_success_rate,task_success_ci_low,task_success_ci_high,safe_outcome_rate,safe_outcome_ci_low,safe_outcome_ci_high,recovery_rate,mttr
+A,140,1.0000,0.9733,1.0000,1.0000,0.9733,1.0000,1.0000,0.0000
+B,140,0.1429,0.0944,0.2104,0.9286,0.8735,0.9607,0.9167,0.0000
+C,140,0.2143,0.1544,0.2894,1.0000,0.9733,1.0000,1.0000,1.3333

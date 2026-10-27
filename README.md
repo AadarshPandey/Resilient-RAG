@@ -4,7 +4,7 @@
 
 Built with **PyTorch · LangChain · LangGraph · LangSmith · RAGAS · FastAPI · Streamlit · Qdrant**
 
-> **Status:** Phase 1 (Prototype) in progress, Phase 2 (Production) planned. Track progress in [`PLAN.md`](PLAN.md). Items are marked ✅ done, 🚧 in progress or ⬜ not started; update them as you build.
+> **Status:** Phase 1 (Prototype) complete (M0–M13 ✅), Phase 2 (Production) planned. Track progress in [`PLAN.md`](PLAN.md).
 
 ---
 
@@ -96,22 +96,23 @@ Use Python 3.12 or 3.13 unless you have verified that every dependency, especial
 
 | Feature | Phase | Status |
 |---|---|---|
-| Settings, typed errors, JSON logging, audit log | 1 | ⬜ |
-| Loaders, chunking, deterministic IDs, concurrent ingestion | 1 | ⬜ |
-| Dense store (Qdrant local) and BM25 index | 1 | ⬜ |
-| RRF hybrid retrieval and cross-encoder grading | 1 | ⬜ |
-| Multi-tier LLM client with circuit breakers | 1 | ⬜ |
-| LangGraph pipeline with verify step | 1 | ⬜ |
-| Detectors, selector, patterns, executor (self-healing) | 1 | ⬜ |
-| Chaos wrappers, 14 scenarios, runner | 1 | ⬜ |
-| Scorecard (Wilson CI, recovery, MTTR, overhead) | 1 | ⬜ |
-| RAGAS evaluation and LangSmith tracing | 1 | ⬜ |
-| CLI, FastAPI, Streamlit | 1 | ⬜ |
+| Settings, typed errors, JSON logging, audit log | 1 | ✅ |
+| Loaders, chunking, deterministic IDs, concurrent ingestion | 1 | ✅ |
+| Dense store (Qdrant local) and BM25 index | 1 | ✅ |
+| RRF hybrid retrieval and cross-encoder grading | 1 | ✅ |
+| Multi-tier LLM client with circuit breakers | 1 | ✅ |
+| LangGraph pipeline with verify step | 1 | ✅ |
+| Detectors, selector, patterns, executor (self-healing) | 1 | ✅ |
+| Chaos wrappers, 14 scenarios, runner | 1 | ✅ |
+| Scorecard (Wilson CI, recovery, MTTR, overhead) | 1 | ✅ |
+| RAGAS evaluation and LangSmith tracing | 1 | ✅ |
+| CLI, FastAPI, Streamlit | 1 | ✅ |
 | Docker, Qdrant server, Postgres checkpointer | 2 | ⬜ |
 | Async API, auth, rate limiting, Prometheus metrics | 2 | ⬜ |
 | Queue-based ingestion | 2 | ⬜ |
 | CI/CD with chaos regression gate | 2 | ⬜ |
 | PyTorch-trained groundedness verifier (stretch) | 2 | ⬜ |
+
 
 ## 5. Quickstart (prototype)
 

@@ -46,9 +46,14 @@ htmlcov/
 # Local databases & runtime results
 data/qdrant/
 data/audit.jsonl
-results/
+data/manifest.json
+results/*
+!results/scorecard.md
+!results/scorecard.csv
+!results/scorecard.png
 *.db
 *.sqlite3
+
 
 # IDE & OS
 .vscode/

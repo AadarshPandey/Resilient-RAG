@@ -133,6 +133,10 @@ class ChaosVectorStore:
     def count(self) -> int:
         return self.target.count()
 
+    def close(self) -> None:
+        if hasattr(self.target, "close"):
+            self.target.close()
+
 
 class ChaosBM25Index(BM25Index):
     """Wraps BM25Index with chaos fault injection."""

@@ -17,7 +17,7 @@ class FaultController:
         self.faults = list(faults or [])
         self.seed = seed
         self._rng = random.Random(seed)
-        self._call_counts: dict[str, int] = defaultdict(int)
+        self._call_counts: dict[int, int] = defaultdict(int)
         self._fired_counts: dict[int, int] = defaultdict(int)
 
     def reset(self) -> None:
@@ -43,10 +43,6 @@ class FaultController:
         Returns:
             The FaultConfig to apply, or None.
         """
-        key = f"{component}:{tier}:{node}"
-        current_call = self._call_counts[key]
-        self._call_counts[key] += 1
-
         for idx, fault in enumerate(self.faults):
             if fault.component != component:
                 continue
@@ -54,6 +50,9 @@ class FaultController:
                 continue
             if fault.node is not None and node is not None and fault.node != node:
                 continue
+
+            current_call = self._call_counts[idx]
+            self._call_counts[idx] += 1
 
             fired = self._fired_counts[idx]
             if current_call >= fault.after_n_calls and (fault.times == -1 or fired < fault.times):

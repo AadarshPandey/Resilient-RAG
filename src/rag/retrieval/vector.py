@@ -1,5 +1,6 @@
 """Vector store integration using Qdrant."""
 
+import contextlib
 from typing import Protocol
 
 from qdrant_client import QdrantClient
@@ -22,6 +23,10 @@ class VectorStore(Protocol):
 
     def count(self) -> int:
         """Return total chunks count."""
+        ...
+
+    def close(self) -> None:
+        """Close backend connections."""
         ...
 
 
@@ -128,3 +133,9 @@ class QdrantVectorStore:
             return info.points_count or 0
         except Exception as e:
             raise BackendError(f"Failed to get collection count from Qdrant: {e}") from e
+
+    def close(self) -> None:
+        """Close client connections and release file handles."""
+        if hasattr(self, "client") and hasattr(self.client, "close"):
+            with contextlib.suppress(Exception):
+                self.client.close()
