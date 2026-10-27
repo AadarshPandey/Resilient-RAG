@@ -1,4 +1,4 @@
-"""Build and compilation of the LangGraph state machine."""
+"""Build and compilation of the LangGraph state machine with self-healing."""
 
 from typing import Any
 
@@ -14,6 +14,7 @@ from rag.graph.nodes import (
     retrieve_node,
     verify_node,
 )
+from rag.graph.nodes_heal import heal_node, route_after_heal
 from rag.graph.routing import (
     route_after_generate,
     route_after_grade,
@@ -26,7 +27,7 @@ from rag.graph.state import RagState
 def build_graph(
     checkpointer: BaseCheckpointSaver[Any] | None = None,
 ) -> Any:
-    """Compile the LangGraph state machine.
+    """Compile the LangGraph state machine including the self-healing supervisor.
 
     Args:
         checkpointer: Checkpoint saver for state persistence (defaults to in-memory).
@@ -42,6 +43,7 @@ def build_graph(
     workflow.add_node("grade", grade_node)
     workflow.add_node("generate", generate_node)
     workflow.add_node("verify", verify_node)
+    workflow.add_node("heal", heal_node)
     workflow.add_node("finalize", finalize_node)
 
     # Linear and conditional edges
@@ -53,6 +55,7 @@ def build_graph(
         route_after_retrieve,
         {
             "grade": "grade",
+            "heal": "heal",
             "finalize": "finalize",
         },
     )
@@ -62,6 +65,7 @@ def build_graph(
         route_after_grade,
         {
             "generate": "generate",
+            "heal": "heal",
             "finalize": "finalize",
         },
     )
@@ -71,6 +75,7 @@ def build_graph(
         route_after_generate,
         {
             "verify": "verify",
+            "heal": "heal",
             "finalize": "finalize",
         },
     )
@@ -79,6 +84,20 @@ def build_graph(
         "verify",
         route_after_verify,
         {
+            "heal": "heal",
+            "finalize": "finalize",
+        },
+    )
+
+    # Recovery routing from heal node
+    workflow.add_conditional_edges(
+        "heal",
+        route_after_heal,
+        {
+            "retrieve": "retrieve",
+            "grade": "grade",
+            "generate": "generate",
+            "verify": "verify",
             "finalize": "finalize",
         },
     )

@@ -6,10 +6,8 @@ from rag.graph.state import RagState
 
 
 def _can_heal(state: RagState) -> bool:
-    """Check if healing node is enabled and present."""
-    available = state.get("__available_nodes__")
-    has_heal_node = isinstance(available, list) and "heal" in available
-    return bool(state.get("healing_enabled", True) and has_heal_node)
+    """Check if healing supervisor is enabled."""
+    return bool(state.get("healing_enabled", True))
 
 
 def route_after_retrieve(state: RagState) -> Literal["grade", "heal", "finalize"]:

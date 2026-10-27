@@ -33,6 +33,8 @@ class RagState(TypedDict, total=False):
     heal_attempts: int
     heal_history: list[tuple[str, str]]
     last_failure: FailureType | str | None
+    last_action: str | None
+    healing_enabled: bool
     outcome: Outcome | str | None
     trace: list[TraceEvent]
     token_usage: int

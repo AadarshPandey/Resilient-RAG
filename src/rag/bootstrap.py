@@ -53,6 +53,9 @@ class Components:
             "llm_tier": 0,
             "token_usage": 0,
             "llm_calls": 0,
+            "healing_enabled": self.settings.healing_enabled
+            if healing_enabled is None
+            else healing_enabled,
             "trace": [],
         }
 

@@ -13,6 +13,7 @@ from rag.graph.prompts import (
     STRICT_GENERATION_PROMPT,
 )
 from rag.graph.state import RagState
+from rag.healing.detector import detect_retrieval_failure
 from rag.schemas import (
     Citation,
     Claim,
@@ -100,6 +101,24 @@ def retrieve_node(state: RagState, config: RunnableConfig | None = None) -> dict
         }
 
     chunks = [r.chunk for r in valid_retrieved]
+
+    # Check for prompt injection in candidate chunks
+    fail = detect_retrieval_failure(chunks=chunks)
+    if fail == FailureType.PROMPT_INJECTION:
+        trace.append(
+            TraceEvent(
+                node="retrieve",
+                timestamp=t,
+                details={"failure": "prompt_injection"},
+            )
+        )
+        return {
+            "chunks": chunks,
+            "retrieved_chunks": valid_retrieved,
+            "last_failure": FailureType.PROMPT_INJECTION,
+            "trace": trace,
+        }
+
     trace.append(
         TraceEvent(
             node="retrieve",
