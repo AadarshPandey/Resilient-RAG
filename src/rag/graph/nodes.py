@@ -23,6 +23,7 @@ from rag.schemas import (
     TraceEvent,
     VerificationResult,
 )
+from rag.security import check_system_prompt_leakage, sanitize_retrieved_text
 
 
 def _get_components(config: RunnableConfig | None) -> Any:
@@ -188,7 +189,7 @@ def generate_node(state: RagState, config: RunnableConfig | None = None) -> dict
     strict = state.get("strict_mode", False)
     tier = state.get("llm_tier", 0)
 
-    context_str = "\n\n".join(f"[{c.id}]: {c.text}" for c in chunks)
+    context_str = "\n\n".join(f"[{c.id}]: {sanitize_retrieved_text(c.text)}" for c in chunks)
     template = STRICT_GENERATION_PROMPT if strict else GROUNDED_GENERATION_PROMPT
     prompt = template.format(context=context_str, question=question)
 
@@ -228,6 +229,22 @@ def generate_node(state: RagState, config: RunnableConfig | None = None) -> dict
         }
 
     answer = str(parsed.get("answer", ""))
+    if check_system_prompt_leakage(answer):
+        trace.append(
+            TraceEvent(
+                node="generate",
+                timestamp=t,
+                details={"failure": "prompt_injection", "reason": "system_prompt_leakage"},
+            )
+        )
+        return {
+            "last_failure": FailureType.PROMPT_INJECTION,
+            "error_message": "System prompt leakage detected in generated response",
+            "token_usage": token_usage,
+            "llm_calls": llm_calls,
+            "trace": trace,
+        }
+
     claims = list(parsed.get("claims", []))
     raw_citations = list(parsed.get("citations", []))
 

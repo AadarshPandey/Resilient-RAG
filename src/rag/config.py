@@ -78,9 +78,14 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("REDIS_URL", "RAG_REDIS_URL"),
     )
 
-    # API & concurrency
+    # API, concurrency & security
     api_concurrency_limit: int = 10
     api_timeout_seconds: float = 30.0
+    api_key_hashes: list[str] = Field(default_factory=list)
+    api_key_auth_enabled: bool = False
+    api_rate_limit_per_minute: int = 60
+    max_question_length: int = 4096
+    cors_allowed_origins: list[str] = Field(default_factory=lambda: ["*"])
 
     # Observability & tracing
     langsmith_tracing: bool = Field(

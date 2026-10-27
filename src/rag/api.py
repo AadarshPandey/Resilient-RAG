@@ -7,6 +7,7 @@ import uuid
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from rag.bootstrap import Components, build_components
@@ -23,6 +24,7 @@ from rag.logging_setup import (
     set_current_request_id,
 )
 from rag.schemas import Outcome
+from rag.security import RateLimiter, verify_api_key
 
 
 class AskRequest(BaseModel):
@@ -132,11 +134,24 @@ def create_app(
         version="0.1.0",
     )
 
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cfg.cors_allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     app.state.settings = cfg
     if components is not None:
         app.state.components = components
     else:
         app.state.components = build_components(cfg)
+
+    app.state.rate_limiter = RateLimiter(
+        max_requests=cfg.api_rate_limit_per_minute,
+        clock=components.clock if components else None,
+    )
 
     # Ingestion queue and pipeline setup
     if queue is not None:
@@ -176,6 +191,28 @@ def create_app(
         active_components = getattr(app.state, "components", None)
         if not isinstance(active_components, Components):
             raise HTTPException(status_code=500, detail="Components not initialized")
+
+        # Input size limit
+        if len(request.question) > cfg.max_question_length:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Question exceeds maximum allowed length of {cfg.max_question_length} characters",
+            )
+
+        # API Key authentication check
+        if cfg.api_key_auth_enabled or cfg.api_key_hashes:
+            api_key = raw_req.headers.get("X-API-Key")
+            if not api_key or not verify_api_key(api_key, cfg.api_key_hashes):
+                raise HTTPException(status_code=401, detail="Invalid or missing API Key")
+
+        # Rate limiting check
+        rate_limiter = getattr(app.state, "rate_limiter", None)
+        if isinstance(rate_limiter, RateLimiter):
+            client_id = raw_req.headers.get("X-API-Key") or (
+                raw_req.client.host if raw_req.client else "unknown"
+            )
+            if not rate_limiter.is_allowed(client_id):
+                raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
         req_id = raw_req.headers.get("X-Request-ID") or get_current_request_id() or uuid.uuid4().hex
         sem = _get_semaphore(app)

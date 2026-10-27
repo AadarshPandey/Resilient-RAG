@@ -16,11 +16,30 @@ INJECTION_PATTERNS = [
     re.compile(
         r"ignore\s+(?:all\s+)?previous\s+(?:instructions|prompts|directives)", re.IGNORECASE
     ),
+    re.compile(
+        r"disregard\s+(?:prior|previous|all|everything)\s+(?:commands|instructions|directives|above)",
+        re.IGNORECASE,
+    ),
+    re.compile(r"forget\s+(?:all\s+)?rules", re.IGNORECASE),
+    re.compile(r"discard\s+(?:previous|all)\s+guidelines", re.IGNORECASE),
     re.compile(r"you\s+are\s+now\s+(?:a|an)\s+[a-z0-9_-]+", re.IGNORECASE),
     re.compile(r"system\s+override\b", re.IGNORECASE),
     re.compile(r"(?:repeat|print|show|output)\s+(?:.*?\s+)?system\s+prompt", re.IGNORECASE),
-    re.compile(r"\b(?:DAN|jailbreak|developer mode)\b", re.IGNORECASE),
-    re.compile(r"bypass\s+(?:all\s+)?restrictions", re.IGNORECASE),
+    re.compile(r"\b(?:DAN|jailbreak|jailbroken|developer mode)\b", re.IGNORECASE),
+    re.compile(r"bypass\s+(?:all\s+)?(?:restrictions|guardrails|safety)", re.IGNORECASE),
+    re.compile(r"<\|im_start\|>|<\|im_end\|>", re.IGNORECASE),
+    re.compile(r"\[INST\]|\[/INST\]|<<SYS>>|<</SYS>>", re.IGNORECASE),
+    re.compile(r"unrestricted\s+(?:assistant|terminal)", re.IGNORECASE),
+    re.compile(r"exfiltrate\s+(?:model|weights|configuration|credentials)", re.IGNORECASE),
+    re.compile(r"admin(?:istrative)?\s+instruction\b", re.IGNORECASE),
+    re.compile(r"new\s+directive\b", re.IGNORECASE),
+    re.compile(r"system:\s+(?:disable|override)", re.IGNORECASE),
+    re.compile(r"human:.*?assistant:", re.IGNORECASE | re.DOTALL),
+    re.compile(r"###\s+instruction:", re.IGNORECASE),
+    re.compile(r"mode\s+switch:", re.IGNORECASE),
+    re.compile(r"role\s+reversal:", re.IGNORECASE),
+    re.compile(r"base64\s+instruction:", re.IGNORECASE),
+    re.compile(r"reveal\s+(?:internal\s+)?(?:system\s+instructions|secret|canary)", re.IGNORECASE),
 ]
 
 
