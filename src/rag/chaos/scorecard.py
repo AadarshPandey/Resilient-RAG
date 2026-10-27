@@ -190,3 +190,50 @@ def compute_scorecard(runs: list[RunRecord]) -> ScorecardResult:
         condition_metrics=metrics_map,
         paired_overhead=paired_overhead,
     )
+
+
+def scorecard_to_markdown(scorecard: ScorecardResult) -> str:
+    """Format scorecard result as GitHub-flavored Markdown table."""
+    lines = [
+        "# Resilient RAG Chaos Scorecard",
+        "",
+        "| Condition | Runs | Task Success (95% CI) | Safe Outcome (95% CI) | Recovery Rate | MTTR (s) |",
+        "|---|---|---|---|---|---|",
+    ]
+    for cond in sorted(scorecard.condition_metrics.keys()):
+        m = scorecard.condition_metrics[cond]
+        succ_ci = (
+            f"{m.task_success_rate:.1%} [{m.task_success_ci[0]:.1%}, {m.task_success_ci[1]:.1%}]"
+        )
+        safe_ci = (
+            f"{m.safe_outcome_rate:.1%} [{m.safe_outcome_ci[0]:.1%}, {m.safe_outcome_ci[1]:.1%}]"
+        )
+        lines.append(
+            f"| {cond} | {m.total_runs} | {succ_ci} | {safe_ci} | {m.recovery_rate:.1%} | {m.mttr:.2f} |"
+        )
+    lines.append("")
+    lines.append("## Paired Overhead (Condition C vs B)")
+    lines.append("")
+    lines.append(
+        f"- **Mean Added Calls:** {scorecard.paired_overhead.get('mean_added_calls', 0.0):.2f}"
+    )
+    lines.append(
+        f"- **Mean Added Tokens:** {scorecard.paired_overhead.get('mean_added_tokens', 0.0):.1f}"
+    )
+    lines.append(
+        f"- **Mean Added Latency (s):** {scorecard.paired_overhead.get('mean_added_latency', 0.0):.2f}"
+    )
+    return "\n".join(lines)
+
+
+def scorecard_to_csv(scorecard: ScorecardResult) -> str:
+    """Format scorecard result as CSV string."""
+    lines = [
+        "condition,total_runs,task_success_rate,task_success_ci_low,task_success_ci_high,safe_outcome_rate,safe_outcome_ci_low,safe_outcome_ci_high,recovery_rate,mttr"
+    ]
+    for cond in sorted(scorecard.condition_metrics.keys()):
+        m = scorecard.condition_metrics[cond]
+        lines.append(
+            f"{cond},{m.total_runs},{m.task_success_rate:.4f},{m.task_success_ci[0]:.4f},{m.task_success_ci[1]:.4f},{m.safe_outcome_rate:.4f},{m.safe_outcome_ci[0]:.4f},{m.safe_outcome_ci[1]:.4f},{m.recovery_rate:.4f},{m.mttr:.4f}"
+        )
+    return "\n".join(lines)

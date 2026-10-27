@@ -82,3 +82,8 @@ class Settings(BaseSettings):
         Path(self.qdrant_path).mkdir(parents=True, exist_ok=True)
         Path(self.audit_log_path).parent.mkdir(parents=True, exist_ok=True)
         Path(self.corpus_dir).mkdir(parents=True, exist_ok=True)
+
+
+def get_settings() -> Settings:
+    """Return an application Settings instance."""
+    return Settings()

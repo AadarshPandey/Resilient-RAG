@@ -88,6 +88,12 @@ class IngestionPipeline:
         """Compute embeddings with exponential backoff retry."""
         return self.embedder.embed(texts)
 
+    def ingest_directory(self, input_dir: str | Path, force: bool = False) -> IngestionResult:
+        """Alias for run with optional force re-indexing."""
+        if force:
+            self._manifest = {}
+        return self.run(input_dir)
+
     def run(self, input_dir: str | Path) -> IngestionResult:
         """Execute ingestion on all supported files in input_dir."""
         directory = Path(input_dir)

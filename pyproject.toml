@@ -65,6 +65,18 @@ ignore = [
     "E501",   # line length violations (handled by ruff format)
 ]
 
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "typer.Option",
+    "typer.Argument",
+    "fastapi.Depends",
+    "fastapi.Query",
+    "pathlib.Path",
+    "Path",
+]
+
+
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
@@ -91,6 +103,7 @@ module = [
     "pypdf.*",
     "bs4.*",
     "google.*",
+    "pandas.*",
 ]
 ignore_missing_imports = true
 
@@ -98,7 +111,8 @@ ignore_missing_imports = true
 minversion = "8.0"
 addopts = "-ra -q --cov=src/rag --cov-report=term-missing"
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
+
 
 [tool.coverage.run]
 source = ["src/rag"]
