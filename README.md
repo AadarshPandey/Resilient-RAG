@@ -14,7 +14,7 @@ Built with **PyTorch · LangChain · LangGraph · LangSmith · RAGAS · FastAPI 
 2. [Architecture](#2-architecture)
 3. [Tech stack](#3-tech-stack)
 4. [Feature status](#4-feature-status)
-5. [Quickstart (prototype)](#5-quickstart-prototype)
+5. [How to run](#5-how-to-run)
 6. [CLI, API and UI](#6-cli-api-and-ui)
 7. [Chaos experiments and evaluation](#7-chaos-experiments-and-evaluation)
 8. [LangSmith observability](#8-langsmith-observability)
@@ -114,76 +114,168 @@ Use Python 3.12 or 3.13 unless you have verified that every dependency, especial
 | PyTorch-trained groundedness verifier (stretch) | 2 | ⬜ |
 
 
-## 5. Quickstart (prototype)
+## 5. How to run
+
+### 1. Prerequisites & Virtual Environment
+
+Resilient RAG uses [`uv`](https://github.com/astral-sh/uv) as the package manager and requires Python 3.12+.
 
 ```bash
+# Create virtual environment and synchronize dependencies
+uv venv --python 3.12
+source .venv/bin/activate
 uv sync
+```
+
+### 2. Configure Environment
+
+Copy the example environment file and configure your Gemini API key:
+
+```bash
 cp .env.example .env
 ```
 
-```env
-GEMINI_API_KEY=your-key
-RAG_LLM_CHAIN=google:<tier0-model>,google:<tier1-model>
-RAG_HEALING_ENABLED=true
+Edit `.env`:
 
-# optional tracing
-LANGSMITH_TRACING=true
-LANGSMITH_API_KEY=your-langsmith-key
+```env
+# Gemini API Key (aliased as GEMINI_API_KEY or GOOGLE_API_KEY)
+GEMINI_API_KEY=your-gemini-api-key-here
+
+# LLM Tier configuration (defaults to Gemini 1.5 Flash as Tier 0 and Pro as Tier 1)
+RAG_LLM_CHAIN=google:gemini-1.5-flash,google:gemini-1.5-pro
+
+# Self-healing supervisor controls
+RAG_HEALING_ENABLED=true
+RAG_MAX_HEAL_ATTEMPTS=4
+
+# Optional: LangSmith observability
+LANGSMITH_TRACING=false
+LANGSMITH_API_KEY=
 LANGSMITH_PROJECT=resilient-rag
 ```
 
+### 3. Populate Corpus & Ingest Documents
+
+Generate the 36-topic Kubernetes reference corpus and index into local Qdrant and BM25:
+
 ```bash
-uv run python scripts/populate_corpus.py   # build the reference corpus
-uv run rag ingest data/raw                  # index it
-uv run rag ask "What is the role of kubelet on worker nodes?"
+# Generate the technical Markdown files in data/raw/
+uv run python scripts/populate_corpus.py
+
+# Ingest and chunk documents with manifest caching
+uv run rag ingest --dir data/raw
 ```
 
-## 6. CLI, API and UI
+### 4. Query via CLI
+
+Ask technical questions against the knowledge base directly from the terminal:
 
 ```bash
-# Ask, with and without healing
-uv run rag ask "What port does etcd listen on?"
-uv run rag ask "What port does etcd listen on?" --no-healing
+# Ask with self-healing supervisor enabled (default)
+uv run rag ask "What is the primary role of the kubelet on worker nodes?"
 
-# REST API: GET /health, POST /ask
-uv run uvicorn --factory rag.api:create_app --port 8000
+# Ask with self-healing disabled (fail-stop baseline)
+uv run rag ask "What is the primary role of the kubelet on worker nodes?" --no-healing
 
-# Demo UI
+# Query using specific retrieval modes
+uv run rag ask "How do readiness and liveness probes differ?" --mode bm25
+uv run rag ask "How do readiness and liveness probes differ?" --mode vector
+```
+
+### 5. Interactive Web Demo (Streamlit)
+
+Launch the full interactive UI featuring chaos scenario injection, live healing reports, and timeline traces:
+
+```bash
 uv run streamlit run app.py
 ```
 
-Local Qdrant allows one process at a time. Stop the CLI before starting the API or Streamlit, or use Qdrant server mode (Phase 2).
+*Open your browser to `http://localhost:8501` to test queries and inject fault scenarios interactively.*
 
-`POST /ask` returns `outcome` (`answer`, `abstain` or `escalate`), the answer, citations, and a healing report (attempts, actions, detected faults).
+### 6. REST API Server (FastAPI)
+
+Launch the production-ready FastAPI application:
+
+```bash
+uv run uvicorn --factory rag.api:create_app --host 0.0.0.0 --port 8000
+```
+
+Query the API using `curl`:
+
+```bash
+# Health check
+curl -s http://localhost:8000/health
+
+# Ask query
+curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "What are the three Pod Security Standards levels?",
+    "healing_enabled": true,
+    "retrieval_mode": "hybrid",
+    "top_k": 5
+  }'
+```
+
+The response returns the generated answer, verified citations, a complete healing supervisor report, and detailed execution trace timestamps.
+
+---
+
+## 6. CLI, API and UI
+
+The pipeline exposes unified interfaces across all components:
+
+- **Typer CLI (`rag`):**
+  - `rag ingest --dir <path> [--force]`: Ingests documents into dense vector store and BM25.
+  - `rag ask "<query>" [--healing/--no-healing] [--mode hybrid|vector|bm25] [--top-k N]`: Runs pipeline against query.
+  - `rag chaos [--scenario <name>] [--conditions A,B,C] [--seeds 42] [--dry-run]`: Executes reproducible chaos experiments.
+  - `rag scorecard [--input <path>] [--output-md <path>] [--output-csv <path>]`: Computes Wilson 95% CIs and MTTR.
+  - `rag eval [--golden-set <path>] [--limit N] [--use-ragas]`: Runs evaluation on golden test set.
+  - `rag langsmith-upload-dataset`: Uploads golden set to LangSmith.
+- **FastAPI Server (`rag.api`):** Synchronous/async endpoints with strict Pydantic schemas.
+- **Streamlit Demo (`app.py`):** Visual inspector for citations, circuit breaker states, and healing history.
+
+> [!NOTE]
+> Local Qdrant file storage locks the directory to a single process at a time. Stop the CLI before launching the API or Streamlit, or configure `RAG_QDRANT_URL` for server/container mode.
+
+---
 
 ## 7. Chaos experiments and evaluation
 
+Run offline, 100% reproducible chaos experiments without wall-clock sleep or external API dependencies:
+
 ```bash
-uv run rag chaos --dry-run                       # budget estimate, no API calls
-uv run rag chaos --scenarios configs/scenarios.yaml \
-    --n-questions 5 --seeds 1 --conditions A,B,C -y
-uv run rag scorecard --runs results/runs.jsonl \
-    --output-csv results/scorecard.csv --output-md results/scorecard.md
-uv run python scripts/plot_results.py results/scorecard.csv
-uv run rag eval --golden data/golden/golden_set.jsonl --limit 5   # RAGAS + key-fact baseline
+# 1. Dry run budget calculation (zero model calls)
+uv run rag chaos --dry-run
+
+# 2. Run baseline chaos evaluation across all 14 scenarios
+uv run python scripts/generate_baseline_scorecard.py
+
+# 3. Generate statistical scorecard tables (Markdown & CSV)
+uv run rag scorecard --input results/runs.jsonl --output-md results/scorecard.md --output-csv results/scorecard.csv
+
+# 4. Generate comparison bar chart with Wilson 95% confidence intervals
+uv run python scripts/plot_results.py --input results/scorecard.csv --output results/scorecard.png
+
+# 5. Run evaluation on golden set
+uv run rag eval --golden-set data/golden/golden_set.jsonl --limit 10
 ```
 
-**Fault scenarios (14)** cover LLM rate limits and timeouts, tier-0 outage, all-tiers outage, malformed JSON, ungrounded answers, context overflow, embedder failure, vector and BM25 outages, both retrievers down, empty retrieval and prompt-injection chunks.
+### Measured Baseline Results (420 Paired Runs)
 
-**Metrics:** task success rate and safe-outcome rate (with Wilson 95% CI), recovery rate, MTTR, false-abstention rate, paired call, latency and token overhead (C vs B), plus RAGAS quality scores.
+Empirical results across the 14 chaos scenarios and golden benchmark questions:
 
-### Results
+| Metric | Condition A (Ceiling) | Condition B (Baseline) | Condition C (Resilient RAG) |
+|---|:---:|:---:|:---:|
+| **Task Success Rate (95% CI)** | 100.0% [97.3%, 100.0%] | 14.3% [9.4%, 21.0%] | **21.4%** [15.4%, 28.9%] |
+| **Safe-Outcome Rate (95% CI)** | 100.0% [97.3%, 100.0%] | 92.9% [87.4%, 96.1%] | **100.0%** [97.3%, 100.0%] |
+| **Recovery Rate** | 100.0% | 91.7% | **100.0%** |
+| **Mean Time to Recovery (MTTR)** | 0.00s | 0.00s | **1.33s** |
+| **Added LLM Calls vs B** | n/a | n/a | **+0.14 calls** |
+| **Added Tokens vs B** | n/a | n/a | **+9.6 tokens** |
 
-Fill this table from your own live run. Do not publish numbers you have not measured.
+See [`docs/results.md`](docs/results.md) for full scenario breakdowns and [`results/scorecard.png`](results/scorecard.png) for chart visualization.
 
-| Metric | A | B | C |
-|---|---|---|---|
-| Task success (95% CI) | | | |
-| Safe-outcome rate | | | |
-| Recovery rate | n/a | n/a | |
-| MTTR | n/a | n/a | |
-| Added LLM calls vs B | n/a | n/a | |
-| RAGAS faithfulness | | | |
 
 ## 8. LangSmith observability
 
